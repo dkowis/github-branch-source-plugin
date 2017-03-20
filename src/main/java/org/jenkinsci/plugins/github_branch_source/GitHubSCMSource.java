@@ -90,6 +90,7 @@ import jenkins.scm.api.metadata.ContributorMetadataAction;
 import jenkins.scm.api.metadata.ObjectMetadataAction;
 import jenkins.scm.api.metadata.PrimaryInstanceMetadataAction;
 import jenkins.scm.impl.ChangeRequestSCMHeadCategory;
+import jenkins.scm.impl.TagSCMHeadCategory;
 import jenkins.scm.impl.UncategorizedSCMHeadCategory;
 import org.apache.commons.lang.StringUtils;
 import org.eclipse.jgit.lib.Constants;
@@ -166,6 +167,9 @@ public class GitHubSCMSource extends AbstractGitSCMSource {
     /** Whether to build PRs filed from a fork, where the build is of the branch head. */
     @NonNull
     private Boolean buildForkPRHead = DescriptorImpl.defaultBuildForkPRHead;
+    /** Whether to build pushed tags */
+    @NonNull
+    private Boolean buildPushedTags = DescriptorImpl.defaultBuildPushedTags;
 
     /**
      * Cache of the official repository HTML URL as reported by {@link GitHub#getRepository(String)}.
@@ -225,6 +229,9 @@ public class GitHubSCMSource extends AbstractGitSCMSource {
         }
         if (buildForkPRHead == null) {
             buildForkPRHead = DescriptorImpl.defaultBuildForkPRHead;
+        }
+        if (buildPushedTags == null) {
+            buildPushedTags = DescriptorImpl.defaultBuildPushedTags;
         }
         if (pullRequestMetadataCache == null) {
             pullRequestMetadataCache = new ConcurrentHashMap<>();
@@ -401,6 +408,15 @@ public class GitHubSCMSource extends AbstractGitSCMSource {
         this.buildForkPRHead = buildForkPRHead;
     }
 
+    public Boolean getBuildPushedTags() {
+        return buildPushedTags;
+    }
+
+    @DataBoundSetter
+    public void setBuildPushedTags(boolean buildPushedTags) {
+        this.buildPushedTags = buildPushedTags;
+    }
+
     @Override
     public String getRemote() {
         return getUriResolver().getRepositoryUri(apiUri, repoOwner, repository);
@@ -479,6 +495,7 @@ public class GitHubSCMSource extends AbstractGitSCMSource {
         }
     }
 
+    //TODO: I think this is where we need to do the work to find out if we want to build a tag
     private void doRetrieve(SCMSourceCriteria criteria, SCMHeadObserver observer, TaskListener listener, GitHub github,
                             GHRepository repo) throws IOException, InterruptedException {
         boolean wantPRs = true;
@@ -844,6 +861,10 @@ public class GitHubSCMSource extends AbstractGitSCMSource {
                 baseHash = pr.getBase().getSha();
             }
             return new PullRequestSCMRevision((PullRequestSCMHead) head, baseHash, pr.getHead().getSha());
+        } else if(head instanceof TagSCMHead) {
+            TagSCMHead tagHead = (TagSCMHead)head;
+            tagHead.getName();
+            return new TagSCMRevision((TagSCMHead)head, baseHash, tag);
         } else {
             return new SCMRevisionImpl(head, repo.getRef("heads/" + head.getName()).getObject().getSha());
         }
@@ -891,6 +912,11 @@ public class GitHubSCMSource extends AbstractGitSCMSource {
                 }
                 return scm;
             }
+        } else if (head instanceof TagSCMHead) {
+            //TODO: this is where I'd build the tag, I think....
+            LOGGER.log(Level.ALL, "Building a tag!");
+            SCMHead checkoutHead = head;
+            GitSCM scm = (GitSCM) super.build(checkoutHead, )
         } else {
             GitSCM scm = (GitSCM) super.build(head, /* casting just as an assertion */(SCMRevisionImpl) revision);
             String repoUrl = repositoryUrl(getRepoOwner(), getRepository());
@@ -1205,6 +1231,7 @@ public class GitHubSCMSource extends AbstractGitSCMSource {
         public static final boolean defaultBuildOriginPRHead = false;
         public static final boolean defaultBuildForkPRMerge = true;
         public static final boolean defaultBuildForkPRHead = false;
+        public static final boolean defaultBuildPushedTags = false;
 
         @Initializer(before = InitMilestone.PLUGINS_STARTED)
         public static void addAliases() {
@@ -1424,8 +1451,9 @@ public class GitHubSCMSource extends AbstractGitSCMSource {
         protected SCMHeadCategory[] createCategories() {
             return new SCMHeadCategory[]{
                     new UncategorizedSCMHeadCategory(Messages._GitHubSCMSource_UncategorizedCategory()),
-                    new ChangeRequestSCMHeadCategory(Messages._GitHubSCMSource_ChangeRequestCategory())
-                    // TODO add support for tags and maybe feature branch identification
+                    new ChangeRequestSCMHeadCategory(Messages._GitHubSCMSource_ChangeRequestCategory()),
+                    new TagSCMHeadCategory(Messages._GitHubSCMSource_TagCategory())
+                    // TODO add support for maybe feature branch identification
             };
         }
 

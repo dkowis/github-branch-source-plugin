@@ -49,5 +49,8 @@
     <f:entry title="${%buildForkPRHead.title}" field="buildForkPRHead">
         <f:checkbox default="${descriptor.defaultBuildForkPRHead}"/>
     </f:entry>
+    <f:entry title="${%buildPushedTags.title}" field="buildPushedTags">
+      <f:checkbox default="${descriptor.defaultBuildPushedTags}"/>
+    </f:entry>
   </f:advanced>
 </j:jelly>

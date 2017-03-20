@@ -236,11 +236,13 @@ public class PushGHEventSubscriber extends GHEventsSubscriber {
                     // GitHub is consistent in inconsistency, this ref is the full ref... other refs are not!
                     head = new BranchSCMHead(ref.substring("refs/heads/".length()));
                 } else {
+                    //This will break it!
                     head = new BranchSCMHead(ref);
                 }
                 return Collections.<SCMHead, SCMRevision>singletonMap(head,
                         new AbstractGitSCMSource.SCMRevisionImpl(head, push.getHead()));
             }
+
             return Collections.emptyMap();
         }
 
